@@ -1,0 +1,762 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { loadCsvEvents } from "@/lib/loadCsvEvents"
+import { motion, AnimatePresence } from "framer-motion"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import EventDetailsDialog from "@/components/event-details-dialog"
+import { Calendar, MapPin, Users, Star, ArrowRight, Flame } from "lucide-react"
+
+interface Event {
+  id: number
+  title: string
+  description: string
+  date: string
+  time: string
+  location: string
+  attendees: number
+  rating: number
+  category: string
+  price: "Free" | "Paid"
+  priceAmount?: string
+  image: string
+  tags: string[]
+  featured?: boolean
+  url?: string
+  userGenerated?: boolean
+}
+
+interface Props {
+  searchQuery?: string
+}
+
+const placeholderImg = "/placeholder.svg?height=200&width=400"
+
+export default function EventsSection({ searchQuery = "" }: Props) {
+  const [events, setEvents] = useState<Event[]>([])
+  const [displayed, setDisplayed] = useState<Event[]>([])
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+
+  // load CSVs once on mount
+  useEffect(() => {
+    ;(async () => {
+      const raw = await loadCsvEvents(["/startup_events.csv", "/event_planner_events.csv"])
+      const mapped: Event[] = raw.map((r, i) => ({
+        id: i + 1,
+        title: (r["Event Name"] ?? r["title"] ?? r["event_name"] ?? "Untitled").toString(),
+        description: (r["Description"] ?? r["focus"] ?? "").toString(),
+        date: (r["Date"] ?? r["date"] ?? "TBD").toString(),
+        time: (r["Time"] ?? r["time"] ?? "").toString(),
+        location: (r["Location"] ?? r["location"] ?? "").toString(),
+        attendees: parseInt((r["Expected Attendees"] ?? r["attendees"] ?? "0").replace(/[^0-9]/g, "")) || 0,
+        rating: 4.5,
+        category: ((r["Category"] ?? r["focus"] ?? "general") as string).toLowerCase(),
+        price: /free/i.test(String(r["Cost"] ?? r["price"])) ? "Free" : "Paid",
+        priceAmount: r["Cost"]?.toString(),
+        image: placeholderImg,
+        tags: (r["Tags"] ?? "").toString().split(/[,;]+/).filter(Boolean),
+        featured: /yes|true/i.test(String(r["Featured"] ?? "")),
+        url: (r["URL"] ?? r["url"] ?? "").toString(),
+      }))
+      setEvents(mapped)
+      setDisplayed(mapped.slice(0, 6))
+      setHasMore(mapped.length > 6)
+    })()
+  }, [])
+
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    setTimeout(() => {
+      setDisplayed((prev) => {
+        const next = events.slice(prev.length, prev.length + 6)
+        return [...prev, ...next]
+      })
+      setHasMore(events.length > displayed.length + 6)
+      setLoadingMore(false)
+    }, 400)
+  }
+
+  const filtered = searchQuery
+    ? events.filter((e) => {
+        const q = searchQuery.toLowerCase()
+        return (
+          e.title.toLowerCase().includes(q) ||
+          e.description.toLowerCase().includes(q) ||
+          e.location.toLowerCase().includes(q) ||
+          e.tags.some((t) => t.toLowerCase().includes(q))
+        )
+      })
+    : displayed
+
+  return (
+    <section id="events" className="py-16 px-6 lg:px-12">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-center mb-12">
+          <Flame className="h-8 w-8 text-orange-400 mr-3" />
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-orange-300 via-red-300 to-pink-300 bg-clip-text text-transparent">
+            Upcoming Events
+          </h2>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {filtered.map((event) => (
+              <motion.div key={event.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+                <Card className="group bg-white/5 border-white/10 text-white backdrop-blur">
+                  <div className="relative">
+                    <img src={event.image} alt={event.title} className="w-full h-48 object-cover" />
+                    {event.price === "Free" && (
+                      <Badge className="absolute top-4 left-4 bg-green-500/90 text-white border-0">FREE</Badge>
+                    )}
+                    {event.price === "Paid" && event.priceAmount && (
+                      <Badge className="absolute top-4 left-4 bg-purple-500/90 text-white border-0">
+                        {event.priceAmount}
+                      </Badge>
+                    )}
+                    <div className="absolute top-4 right-4 flex items-center space-x-1 bg-black/50 rounded-full px-3 py-1">
+                      <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                      <span className="text-sm font-medium">{event.rating}</span>
+                    </div>
+                  </div>
+                  <CardContent className="p-6 space-y-4">
+                    <div>
+                      <h3 className="text-xl font-bold line-clamp-1">{event.title}</h3>
+                      <p className="text-white/70 text-sm line-clamp-2">{event.description}</p>
+                    </div>
+                    <div className="space-y-1 text-sm text-white/60">
+                      <div className="flex items-center"><Calendar className="h-4 w-4 mr-2" />{event.date}</div>
+                      <div className="flex items-center"><MapPin className="h-4 w-4 mr-2" />{event.location}</div>
+                      <div className="flex items-center"><Users className="h-4 w-4 mr-2" />{event.attendees} attendees</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {event.tags.slice(0, 3).map((t) => (
+                        <Badge key={t} variant="outline" className="text-xs bg-purple-500/10 border-purple-400/30 text-purple-300">
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                    <EventDetailsDialog event={event}>
+                      <Button variant="secondary" className="w-full bg-gradient-to-r from-purple-500/80 to-blue-500/80 text-white">
+                        View Details <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </EventDetailsDialog>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {hasMore && (
+          <div className="text-center mt-12">
+            <Button onClick={loadMore} disabled={loadingMore} variant="outline" className="bg-white/10 backdrop-blur text-white">
+              {loadingMore ? "Loading…" : "Load more"}
+            </Button>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+} } from "@/lib/loadCsvEvents"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import EventDetailsDialog from "@/components/event-details-dialog"
+import {
+  Calendar,
+  MapPin,
+  Users,
+  Star,
+  ArrowRight,
+  Gift,
+  Award,
+  Utensils,
+  Wifi,
+  Coffee,
+  TrendingUp,
+  Flame,
+  Clock,
+  Filter,
+} from "lucide-react"
+
+interface Event {
+  id: number
+  title: string
+  description: string
+  date: string
+  time: string
+  location: string
+  attendees: number
+  rating: number
+  category: string
+  price: "Free" | "Paid"
+  priceAmount?: string
+  image: string
+  specialFeatures: string[]
+  tags: string[]
+  featured?: boolean
+  url?: string
+  trending?: boolean
+  urgent?: boolean
+  userGenerated?: boolean
+}
+
+interface EventsSectionProps {
+  searchQuery?: string
+}
+
+const categories = [
+  { id: "all", label: "All Events", count: 24 },
+  { id: "ai", label: "AI & ML", count: 8 },
+  { id: "hackathons", label: "Hackathons", count: 6 },
+  { id: "vibecoding", label: "VibeCoding", count: 4 },
+  { id: "fintech", label: "FinTech", count: 5 },
+  { id: "saas", label: "SaaS", count: 7 },
+  { id: "networking", label: "Networking", count: 9 },
+]
+
+
+/*
+  {
+    id: 1,
+    title: "AI Founders Summit 2024",
+    description:
+      "Connect with AI startup founders and learn about the latest trends in artificial intelligence. Discover funding opportunities and partnership possibilities.",
+    date: "Mar 15, 2024",
+    time: "9:00 AM - 6:00 PM",
+    location: "San Francisco, CA",
+    attendees: 500,
+    rating: 4.9,
+    category: "ai",
+    price: "Paid",
+    priceAmount: "$299",
+    image: "/placeholder.svg?height=200&width=400",
+    specialFeatures: ["Top VCs as judges", "Gourmet lunch included", "1-on-1 mentor sessions"],
+    tags: ["AI", "Funding", "Networking"],
+    featured: true,
+    trending: true,
+    priceAmount: "$149",
+    image: "/placeholder.svg?height=200&width=400",
+    specialFeatures: ["Hands-on coding", "NFT certificates", "Expert mentorship"],
+    tags: ["Blockchain", "Web3", "Development"],
+  },
+]
+*/
+
+// Add this function after the mockEvents array
+const getUserEvents = () => {
+  if (typeof window !== "undefined") {
+    const userEvents = JSON.parse(localStorage.getItem("user-events") || "[]")
+    return userEvents.map((event: any) => ({
+      id: event.id,
+      title: event.eventName,
+      description: event.description,
+      date: new Date(event.date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+      time: "Time varies", // Since we don't have time in the upload form
+      location: event.location,
+      attendees: event.attendees || Math.floor(event.expectedAttendees * 0.4),
+      rating: event.rating || 4.5,
+      category: event.focus,
+      price: event.cost === "free" ? "Free" : "Paid",
+      priceAmount: event.cost === "paid" ? `$${event.costAmount}` : undefined,
+      image: event.image || "/placeholder.svg?height=200&width=400",
+      specialFeatures: event.speakers.map((speaker: string) => `Speaker: ${speaker}`),
+      tags: [event.bestFor, event.focus, ...event.speakers.slice(0, 2)],
+      userGenerated: true,
+    }))
+  }
+  return []
+}
+
+export default function EventsSection({ searchQuery = "" }: EventsSectionProps) {
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [csvEvents, setCsvEvents] = useState<Event[]>([])
+  const [events, setEvents] = useState<Event[]>([])
+  const [displayedEvents, setDisplayedEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+
+  // load CSVs once
+  useEffect(() => {
+    ;(async () => {
+      const raw = await loadCsvEvents(["/startup_events.csv", "/event_planner_events.csv"])
+      const mapped: Event[] = raw.map((r, idx) => ({
+        id: idx + 1,
+        title: r["Event Name"] ?? r["title"] ?? r["event_name"],
+        description: r["Description"] ?? r["focus"] ?? "",
+        date: r["Date"] ?? r["date"],
+        time: r["Time"] ?? r["time"] ?? "",
+        location: r["Location"] ?? r["location"] ?? "",
+        attendees: parseInt((r["Expected Attendees"] ?? r["attendees"] ?? "0").replace(/[^0-9]/g, "")) || 0,
+        rating: 4.5,
+        category: (r["Category"] ?? r["focus"] ?? "csv").toLowerCase(),
+        price: /free/i.test(r["Cost"] ?? r["price"] ?? "") ? "Free" : "Paid",
+        priceAmount: r["Cost"] ?? undefined,
+        image: "/placeholder.svg?height=200&width=400",
+        specialFeatures: [],
+        tags: (r["Tags"] ?? "").split(/,|;/).filter(Boolean),
+        featured: /yes|true/i.test(r["Featured"] ?? ""),
+        url: r["URL"] ?? r["url"],
+      }))
+      setCsvEvents(mapped)
+    })()
+  }, [])
+
+  // featured
+  const featuredEvents = csvEvents.filter((e) => e.featured)
+
+  useEffect(() => {
+    const userEvents = getUserEvents()
+    let merged = [...csvEvents, ...userEvents]
+
+    if (selectedCategory !== "all") merged = merged.filter((e) => e.category === selectedCategory)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      merged = merged.filter(
+        (e) =>
+          e.title.toLowerCase().includes(q) ||
+          e.description.toLowerCase().includes(q) ||
+          e.location.toLowerCase().includes(q) ||
+          e.tags.some((t) => t.toLowerCase().includes(q)),
+      )
+    }
+
+    setEvents(merged)
+    setDisplayedEvents(merged.slice(0, 6))
+    setHasMore(merged.length > 6)
+  }, [csvEvents, selectedCategory, searchQuery])
+
+
+
+
+          return {
+            id: index + 1,
+            title,
+            description,
+            date,
+            time: "",
+            location,
+            attendees: parseInt(String(attendeesRaw).replace(/[^0-9]/g, "")) || 0,
+            rating: 4.5,
+            category: "csv",
+            price,
+            priceAmount: costField,
+            image: "/placeholder.svg?height=200&width=400",
+            specialFeatures: String(row.speakers ?? row["Speakers"] ?? "").split(/;|,/).filter(Boolean),
+
+  // Get featured events (after fetch)
+  const featuredEvents = csvEvents.filter((event) => event.featured) 
+
+  useEffect(() => {
+    // Combine mock events with user events
+    const userEvents = getUserEvents()
+    const allEvents = [...csvEvents, ...userEvents]
+
+    // Filter events based on selected category and search query
+    let filtered = allEvents
+
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter((event) => event.category === selectedCategory)
+    }
+
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(
+        (event) =>
+          event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.tags.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          event.location.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    }
+
+    setEvents(filtered as Event[])
+    setDisplayedEvents(filtered.slice(0, 6))
+    setHasMore(filtered.length > 6)
+  }, [selectedCategory, searchQuery, csvEvents])
+
+  const loadMoreEvents = () => {
+    if (loading || !hasMore) return
+
+    setLoading(true)
+
+    setTimeout(() => {
+      const currentLength = displayedEvents.length
+      const nextEvents = events.slice(currentLength, currentLength + 6)
+
+      setDisplayedEvents((prev) => [...prev, ...nextEvents])
+      setHasMore(currentLength + nextEvents.length < events.length)
+      setLoading(false)
+    }, 1000)
+  }
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 1000) {
+        loadMoreEvents()
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [loading, hasMore, displayedEvents.length])
+
+  const getFeatureIcon = (feature: string) => {
+    if (feature.toLowerCase().includes("judge") || feature.toLowerCase().includes("speaker")) return Award
+    if (
+      feature.toLowerCase().includes("meal") ||
+      feature.toLowerCase().includes("lunch") ||
+      feature.toLowerCase().includes("food")
+    )
+      return Utensils
+    if (feature.toLowerCase().includes("coffee") || feature.toLowerCase().includes("drink")) return Coffee
+    if (feature.toLowerCase().includes("prize") || feature.toLowerCase().includes("pool")) return Gift
+    if (feature.toLowerCase().includes("wifi") || feature.toLowerCase().includes("access")) return Wifi
+    return Star
+  }
+
+  return (
+    <section id="events" className="relative py-16 px-6 lg:px-12">
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-900/5 to-blue-900/5" />
+
+      <div className="relative max-w-7xl mx-auto">
+        {/* Featured Events Section */}
+        <motion.div
+          className="mb-20"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+        >
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center mb-4">
+              <Flame className="h-8 w-8 text-orange-400 mr-3" />
+              <h2 className="text-3xl md:text-4xl font-bold">
+                <span className="bg-gradient-to-r from-orange-300 via-red-300 to-pink-300 bg-clip-text text-transparent">
+                  Hottest Upcoming Events
+                </span>
+              </h2>
+            </div>
+            <p className="text-lg text-white/70 max-w-2xl mx-auto">
+              Don't miss these trending events that are capturing the startup community's attention
+            </p>
+          </div>
+
+          {/* Featured Events Grid */}
+          <div className="grid lg:grid-cols-3 gap-6 mb-8">
+            {featuredEvents.map((event, index) => (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                whileHover={{ y: -8, scale: 1.02 }}
+                className="group"
+              >
+                <Card className="bg-white/10 backdrop-blur-xl border-white/20 hover:border-orange-400/50 transition-all duration-300 overflow-hidden h-full shadow-2xl hover:shadow-orange-500/20 relative">
+                  {/* Featured Badge */}
+                  <div className="absolute top-4 left-4 z-10">
+                    <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 font-semibold">
+                      {event.trending && <TrendingUp className="h-3 w-3 mr-1" />}
+                      {event.urgent && <Clock className="h-3 w-3 mr-1" />}
+                      {event.trending ? "TRENDING" : event.urgent ? "URGENT" : "FEATURED"}
+                    </Badge>
+                  </div>
+
+                  <div className="relative">
+                    <img
+                      src={event.image || "/placeholder.svg"}
+                      alt={event.title}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute top-4 right-4">
+                      <Badge
+                        variant={event.price === "Free" ? "secondary" : "default"}
+                        className={`${
+                          event.price === "Free"
+                            ? "bg-green-500/90 text-white border-0"
+                            : "bg-purple-500/90 text-white border-0"
+                        } backdrop-blur-sm font-semibold`}
+                      >
+                        {event.price === "Free" ? "FREE" : event.priceAmount}
+                      </Badge>
+                    </div>
+                    <div className="absolute bottom-4 right-4 flex items-center space-x-1 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">
+                      <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                      <span className="text-white text-sm font-medium">{event.rating}</span>
+                    </div>
+                  </div>
+
+                  <CardContent className="p-6">
+                    <div className="mb-4">
+                      <h3 className="text-xl font-bold text-white mb-3 line-clamp-2 group-hover:text-orange-300 transition-colors">
+                        {event.title}
+                      </h3>
+                      <p className="text-white/70 text-sm leading-relaxed line-clamp-2">{event.description}</p>
+                    </div>
+
+                    <div className="space-y-2 mb-4 text-sm text-white/60">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2 text-orange-400" />
+                        <span>
+                          {event.date} • {event.time}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-2 text-blue-400" />
+                        <span>{event.location}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 mr-2 text-green-400" />
+                        <span>
+                          {event.attendees} attendees
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      {event.tags.slice(0, 2).map((tag: string) => (
+                        <Badge
+                          key={tag}
+                          variant="outline"
+                          className="text-xs bg-orange-500/10 border-orange-400/30 text-orange-300 hover:bg-orange-500/20"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    <Button
+                      className="w-full bg-gradient-to-r from-orange-500/80 to-red-500/80 hover:from-orange-500 hover:to-red-500 text-white border-0 group-hover:shadow-lg transition-all duration-200 font-semibold"
+                      size="sm"
+                    >
+                      View Details
+                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Main Events Section */}
+        <motion.div
+          className="text-center mb-12"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+        >
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+            Discover{" "}
+            <span className="bg-gradient-to-r from-purple-300 via-blue-300 to-indigo-300 bg-clip-text text-transparent">
+              All Events
+            </span>
+          </h2>
+          <p className="text-lg text-white/70 max-w-3xl mx-auto leading-relaxed">
+            {searchQuery
+              ? `Search results for "${searchQuery}"`
+              : "Browse our complete collection of startup events happening around the world"}
+          </p>
+        </motion.div>
+
+        {/* Category Filters */}
+        <motion.div
+          className="flex flex-wrap justify-center gap-3 mb-12"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          viewport={{ once: true }}
+        >
+          <div className="flex items-center mr-4 mb-2">
+            <Filter className="h-4 w-4 text-white/60 mr-2" />
+            <span className="text-white/60 text-sm font-medium">Filter by:</span>
+          </div>
+          {categories.map((category) => (
+            <Button
+              key={category.id}
+              variant={selectedCategory === category.id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory(category.id)}
+              className={`transition-all duration-200 ${
+                selectedCategory === category.id
+                  ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 shadow-lg"
+                  : "bg-white/10 backdrop-blur-sm border-white/20 text-white/80 hover:bg-white/20 hover:text-white"
+              }`}
+            >
+              {category.label}
+              <Badge variant="secondary" className="ml-2 bg-white/20 text-xs">
+                {category.count}
+              </Badge>
+            </Button>
+          ))}
+        </motion.div>
+
+        {/* Search Results Info */}
+        {searchQuery && (
+          <motion.div
+            className="text-center mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
+          >
+            <p className="text-white/60">
+              Found {events.length} event{events.length !== 1 ? "s" : ""} matching your search
+            </p>
+          </motion.div>
+        )}
+
+        {/* Events Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {displayedEvents.map((event, index) => (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4, delay: index * 0.05 }}
+                whileHover={{ y: -8, scale: 1.02 }}
+                className="group"
+              >
+                <Card className="bg-white/5 backdrop-blur-xl border-white/10 hover:border-purple-400/50 transition-all duration-300 overflow-hidden h-full shadow-2xl hover:shadow-purple-500/10">
+                  <div className="relative">
+                    <img
+                      src={event.image || "/placeholder.svg"}
+                      alt={event.title}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="absolute top-4 left-4">
+                      <Badge
+                        variant={event.price === "Free" ? "secondary" : "default"}
+                        className={`${
+                          event.price === "Free"
+                            ? "bg-green-500/90 text-white border-0"
+                            : "bg-purple-500/90 text-white border-0"
+                        } backdrop-blur-sm font-semibold`}
+                      >
+                        {event.price === "Free" ? "FREE" : event.priceAmount}
+                      </Badge>
+                    </div>
+                    {event.userGenerated && (
+                      <div className="absolute top-4 left-20">
+                        <Badge className="bg-green-500/90 text-white border-0 font-semibold">USER EVENT</Badge>
+                      </div>
+                    )}
+                    <div className="absolute top-4 right-4 flex items-center space-x-1 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">
+                      <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                      <span className="text-white text-sm font-medium">{event.rating}</span>
+                    </div>
+                  </div>
+
+                  <CardContent className="p-6">
+                    <div className="mb-4">
+                      <h3 className="text-xl font-bold text-white mb-3 line-clamp-1 group-hover:text-purple-300 transition-colors">
+                        {event.title}
+                      </h3>
+                      <p className="text-white/70 text-sm leading-relaxed line-clamp-2">{event.description}</p>
+                    </div>
+
+                    <div className="space-y-2 mb-4 text-sm text-white/60">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2 text-purple-400" />
+                        <span>
+                          {event.date} • {event.time}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-2 text-blue-400" />
+                        <span>{event.location}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 mr-2 text-green-400" />
+                        <span>
+                          {event.attendees} attendees
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      {event.tags.slice(0, 3).map((tag: string) => (
+                        <Badge
+                          key={tag}
+                          variant="outline"
+                          className="text-xs bg-purple-500/10 border-purple-400/30 text-purple-300 hover:bg-purple-500/20"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    <EventDetailsDialog event={event}>
+                      <Button
+                        className="w-full bg-gradient-to-r from-purple-500/80 to-blue-500/80 hover:from-purple-500 hover:to-blue-500 text-white border-0 group-hover:shadow-lg transition-all duration-200 font-semibold"
+                        size="sm"
+                      >
+                        View Details
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </EventDetailsDialog>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center mt-12">
+            <div className="flex items-center space-x-3 text-white/60">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-400"></div>
+              <span className="font-medium">Loading more events...</span>
+            </div>
+          </div>
+        )}
+
+        {/* End of Results */}
+        {!hasMore && displayedEvents.length > 0 && (
+          <div className="text-center mt-16">
+            <p className="text-white/60 mb-4">You've seen all events in this category</p>
+            <Button
+              variant="outline"
+              className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+              onClick={() => setSelectedCategory("all")}
+            >
+              View All Categories
+            </Button>
+          </div>
+        )}
+
+        {/* No Results */}
+        {events.length === 0 && searchQuery && (
+          <div className="text-center py-16">
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 max-w-md mx-auto border border-white/10">
+              <h3 className="text-xl font-semibold text-white mb-4">No events found</h3>
+              <p className="text-white/70 mb-6">
+                We couldn't find any events matching "{searchQuery}". Try adjusting your search or browse all events.
+              </p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+              >
+                Browse All Events
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}

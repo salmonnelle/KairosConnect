@@ -1,0 +1,18 @@
+# Netlify configuration for KAIROS full-stack site (Next.js + Supabase)
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# Include CSV data files (and any other static assets) in the functions bundle if needed
+[functions]
+  included_files = ["public/**/*.csv", "*.csv"]
+
+# Enable the official Next.js adapter
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[dev]
+  command = "npm run dev"
+  port = 3000
+  targetPort = 3000
