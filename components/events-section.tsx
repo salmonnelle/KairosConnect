@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { loadCsvEvents } from "@/lib/loadCsvEvents"
-import { motion, AnimatePresence } from "framer-motion"
+import { loadCsvEvents } from "@/lib/loadCsvEvents";
+import { CSV_SOURCES } from "@/lib/csvSources";
+import { motion, AnimatePresence } from "@/lib/animation";
 import { Button } from "@/components/ui/button"
 
 const PREDEFINED_CATEGORIES = ["fintech", "ai", "hackathon", "design"] as const
@@ -54,6 +55,7 @@ function classifyCategory(raw: string): PredefinedCategory | "general" {
 import { Flame } from "lucide-react"
 import EventCard from "@/components/event-card"
 
+// Define a more flexible Event interface that works with our CSV data
 interface Event {
   id: number
   title: string
@@ -64,11 +66,17 @@ interface Event {
   category: string
   price: "Free" | "Paid"
   priceAmount?: string
-  url?: string
+  url: string
   speakers?: string
   bestFor?: string
   attendeeProfile?: string
   tags: string[]
+  // Add default values for compatibility with event-search-section
+  type?: string
+  topic?: string
+  is_featured?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 interface Props {
@@ -80,22 +88,25 @@ const placeholderImg = "/placeholder.svg?height=200&width=400"
 export default function EventsSection({ searchQuery = "" }: Props) {
   const [events, setEvents] = useState<Event[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [displayed, setDisplayed] = useState<Event[]>([])
-  const [loadingMore, setLoadingMore] = useState(false)
-
-  const [hasMore, setHasMore] = useState(false)
 
   // load CSVs once on mount
   useEffect(() => {
     ;(async () => {
-      const raw = await loadCsvEvents(["/data/startup_events.csv", "/data/event_planner_events.csv"])
-      const mapped: Event[] = raw.map((r, i) => {
+      const raw = await loadCsvEvents(CSV_SOURCES)
+      const mapped = raw.map((r, i) => {
         const rec: Record<string, string> = {}
         for (const [k, v] of Object.entries(r)) {
           rec[k.toLowerCase()] = String(v ?? "")
         }
         return {
-        id: i + 1,
+        id: (() => {
+          const rawIdStr = rec["id"] ?? rec["ID"] ?? rec["Event ID"] ?? rec["event_id"];
+          const parsed = rawIdStr ? parseInt(rawIdStr) : NaN;
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+          const csvIdx = r.__csvIndex ?? 0;
+          const rowIdx = r.__rowIndex ?? i;
+          return csvIdx * 10000 + rowIdx + 1;
+        })(),
         title: rec["event name"] || rec["title"] || rec["event_name"] || "Untitled",
         description: (r["Description"] ?? r["focus"] ?? "").toString(),
         date: (r["Date"] ?? r["date"] ?? "TBD").toString(),
@@ -104,7 +115,7 @@ export default function EventsSection({ searchQuery = "" }: Props) {
         attendees: parseInt((r["Expected Attendees"] ?? r["attendees"] ?? "0").replace(/[^0-9]/g, "")) || 0,
         
         category: classifyCategory(String(r["Category"] ?? r["focus"] ?? r["Description"] ?? r["title"])),
-        price: /free/i.test(String(r["Cost"] ?? r["price"])) ? "Free" : "Paid",
+        price: /free/i.test(String(r["Cost"] ?? r["price"])) ? "Free" as const : "Paid" as const,
         priceAmount: r["Cost"]?.toString(),
         
         speakers: (r["Speakers"] ?? "").toString(),
@@ -112,30 +123,25 @@ export default function EventsSection({ searchQuery = "" }: Props) {
         attendeeProfile: (r["Attendee Profile"] ?? "").toString(),
         tags: (r["Tags"] ?? "").toString().split(/[,;]+/).filter(Boolean),
         url: (r["URL"] ?? r["url"] ?? "").toString(),
+        // Add required fields for compatibility with event-search-section
+        type: "Event",
+        topic: rec["category"] || "General",
+        is_featured: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
               }
       })
-      setEvents(mapped)
-      setDisplayed(mapped.slice(0, 6))
-      setHasMore(mapped.length > 6)
+      // Only show the first 6 events, no more loading
+      const limitedEvents = mapped.slice(0, 6)
+      setEvents(limitedEvents)
 
     })()
   }, [])
 
-  const loadMore = () => {
-    if (loadingMore || !hasMore) return
-    setLoadingMore(true)
-    setTimeout(() => {
-      setDisplayed((prev) => {
-        const next = events.slice(prev.length, prev.length + 6)
-        return [...prev, ...next]
-      })
-      setHasMore(events.length > displayed.length + 6)
-      setLoadingMore(false)
-    }, 400)
-  }
+  // Removed loadMore function - no infinite scrolling
 
   // derive filtered list based on search and category
-  const baseList = searchQuery || selectedCategory !== "all" ? events : displayed
+  const baseList = events
 
   const filteredBase = searchQuery
     ? events.filter((e) => {
@@ -222,13 +228,7 @@ export default function EventsSection({ searchQuery = "" }: Props) {
           </AnimatePresence>
         </div>
 
-        {hasMore && (
-          <div className="text-center mt-12">
-            <Button onClick={loadMore} disabled={loadingMore} variant="outline" className="bg-white/10 backdrop-blur text-white">
-              {loadingMore ? "Loading…" : "Load more"}
-            </Button>
-          </div>
-        )}
+        {/* Removed Load More button - no infinite scrolling */}
       </div>
     </section>
   )

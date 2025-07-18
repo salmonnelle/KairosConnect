@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion } from "@/lib/animation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -101,17 +101,32 @@ export default function QuizResults({ quizData, onStartOver, onSignUp }: QuizRes
       <Link
         href="/"
         className="fixed top-6 right-16 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 group"
+        aria-label="Go to home page"
       >
         <Home className="h-5 w-5 text-white group-hover:text-white/80" />
       </Link>
 
-      {/* Close Button */}
+      {/* Close Button - Resets quiz state */}
       <button
         onClick={onStartOver}
         className="fixed top-6 right-6 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 group"
+        aria-label="Reset quiz"
       >
         <X className="h-5 w-5 text-white group-hover:text-white/80" />
       </button>
+      
+      {/* Circle with X Button - Back to Landing Page */}
+      <Link
+        href="/"
+        className="fixed top-6 left-6 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 group"
+        aria-label="Return to landing page"
+        onClick={(e) => {
+          e.preventDefault();
+          window.location.href = '/';
+        }}
+      >
+        <X className="h-5 w-5 text-white group-hover:text-white/80" />
+      </Link>
 
       <div className="min-h-screen p-4 pt-20 relative z-10">
         <div className="max-w-7xl mx-auto">
@@ -225,7 +240,7 @@ export default function QuizResults({ quizData, onStartOver, onSignUp }: QuizRes
                     className="text-4xl font-bold text-emerald-400 mb-2"
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.8, type: "spring", stiffness: 200 }}
+                    transition={{ delay: 0.8, duration: 0.5, ease: "easeOut" }}
                   >
                     {avgMatchScore}%
                   </motion.div>
@@ -244,7 +259,7 @@ export default function QuizResults({ quizData, onStartOver, onSignUp }: QuizRes
                     className="text-4xl font-bold text-blue-400 mb-2"
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.9, type: "spring", stiffness: 200 }}
+                    transition={{ delay: 0.9, duration: 0.5, ease: "easeOut" }}
                   >
                     {personalizedEvents.length}
                   </motion.div>
@@ -266,7 +281,7 @@ export default function QuizResults({ quizData, onStartOver, onSignUp }: QuizRes
                     className="text-4xl font-bold text-purple-400 mb-2"
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 1, type: "spring", stiffness: 200 }}
+                    transition={{ delay: 1, duration: 0.5, ease: "easeOut" }}
                   >
                     {personalizedEvents.filter((event) => event.matchScore >= 80).length}
                   </motion.div>

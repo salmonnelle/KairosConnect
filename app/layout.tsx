@@ -7,8 +7,8 @@ import Providers from "./providers"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "KAIROS - Startup Events Platform",
-  description: "The all-in-one startup events platform for founders",
+  title: "KAIROS - Professional Events Platform",
+  description: "The all-in-one professional events platform for founders",
     generator: 'v0.dev'
 }
 

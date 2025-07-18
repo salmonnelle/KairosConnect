@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { loadCsvEvents } from "@/lib/loadCsvEvents"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "@/lib/framer-motion-wrapper"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

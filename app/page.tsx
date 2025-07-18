@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "@/lib/animation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Users, Calendar, Sparkles, Search, Zap, Target, TrendingUp, Plus, LogOut } from "lucide-react"
@@ -16,20 +16,23 @@ import { AuthProvider, useAuth } from "@/components/auth-context"
 import WaitlistModal from "@/components/waitlist-modal"
 // import SignInModal from "@/components/sign-in-modal"
 import EventUpload from "@/components/event-upload"
+import SparkleAnimation from "@/components/sparkle-animation"
+import ContactForm from "@/components/contact-form"
+import { EventSearchInput } from "@/components/search/event-search-input"
 
 function KairosLandingContent() {
   const [showQuiz, setShowQuiz] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [quizData, setQuizData] = useState(null)
-  const [showReferralProgram, setShowReferralProgram] = useState(false)
+  // Removed referral program state
   const [searchQuery, setSearchQuery] = useState("")
   // const [showSignIn, setShowSignIn] = useState(false)
   const [activeTab, setActiveTab] = useState<"discover" | "upload">("discover")
   const [showContact, setShowContact] = useState(false)
-  const handleCopyEmail = async () => {
-    await navigator.clipboard.writeText("connect.kairos.ph@gmail.com")
-    alert("Email copied to clipboard! ✨")
-  }
+  const [eventType, setEventType] = useState<string>("All Types")
+  const [eventLocation, setEventLocation] = useState<string>("Topic")
+  const [eventDate, setEventDate] = useState<string>("")
+  // Contact form handling is now in the ContactForm component
 
   const { user, isAuthenticated, signOut } = useAuth()
 
@@ -54,10 +57,43 @@ function KairosLandingContent() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    setActiveTab("discover")
-    const eventsSection = document.getElementById("events")
-    if (eventsSection) {
-      eventsSection.scrollIntoView({ behavior: "smooth" })
+    // Log search parameters for debugging
+    console.log({
+      query: searchQuery,
+      type: eventType,
+      location: eventLocation,
+      date: eventDate
+    })
+    
+    // Build query parameters object
+    const params = new URLSearchParams();
+    
+    // Only add parameters that have values
+    if (searchQuery.trim()) {
+      params.set("q", searchQuery.trim());
+    }
+    
+    if (eventType !== "All Types") {
+      params.set("type", eventType);
+    }
+    
+    if (eventLocation !== "Topic") {
+      params.set("location", eventLocation);
+    }
+    
+    if (eventDate) {
+      params.set("date", eventDate);
+    }
+    
+    // Navigate to search page if we have any parameters
+    if (params.toString()) {
+      window.location.href = `/search?${params.toString()}`;
+    } else {
+      // If no parameters at all, just scroll to events section
+      const eventsSection = document.getElementById("events")
+      if (eventsSection) {
+        eventsSection.scrollIntoView({ behavior: "smooth" })
+      }
     }
   }
 
@@ -71,6 +107,7 @@ function KairosLandingContent() {
 
   return (
     <div className="min-h-screen text-white overflow-hidden relative">
+      <SparkleAnimation />
       {/* Refined Dynamic Gradient Background */}
       <DynamicGradientBackground />
 
@@ -84,57 +121,27 @@ function KairosLandingContent() {
         <motion.div
           className="flex items-center"
           whileHover={{ scale: 1.02 }}
-          transition={{ type: "spring", stiffness: 400, damping: 10 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <span className="text-2xl font-bold tracking-tight text-shadow-subtle">KAIROS</span>
+          <span className="text-4xl font-bold tracking-tight text-shadow-subtle">KAIROS</span>
         </motion.div>
 
-        {/* Integrated Search Bar */}
+        {/* Spacer div to maintain layout */}
         <div className="hidden md:flex flex-1 max-w-md mx-8">
-          <form onSubmit={handleSearch} className="relative w-full">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
-            <input
-              type="text"
-              placeholder="Search events, topics, or locations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-black/30 backdrop-blur-content border border-white/20 rounded-xl pl-11 pr-4 py-2.5 text-white placeholder-white/60 focus:outline-none focus:border-purple-400 transition-smooth text-sm"
-            />
-            {searchQuery && (
-              <Button
-                type="submit"
-                size="sm"
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 h-8 px-3 text-xs"
-              >
-                Search
-              </Button>
-            )}
-          </form>
+          {/* Search removed as requested */}
         </div>
 
         <div className="flex items-center space-x-4 relative">
           {/* Contact Us */}
             <Button
-              variant="secondary"
-              size="sm"
               onClick={() => setShowContact(true)}
-              className="px-4 py-2 text-sm"
+              className="bg-white hover:bg-gray-100 px-6 py-2 text-base font-medium rounded-md shadow-md transition-all duration-200 hover:scale-105 h-[45px] w-[140px]"
             >
-              Contact Us
+              <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">Contact Us</span>
             </Button>
 
           {/* Navigation Tabs */}
           <div className="hidden lg:flex items-center space-x-1 bg-black/20 backdrop-blur-sm rounded-xl p-1">
-            <button
-              onClick={() => setActiveTab("discover")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                activeTab === "discover"
-                  ? "bg-white/20 text-white shadow-lg"
-                  : "text-white/70 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              Discover
-            </button>
             {isAuthenticated && (
               <button
                 onClick={() => setActiveTab("upload")}
@@ -178,53 +185,16 @@ function KairosLandingContent() {
         </div>
       </motion.nav>
 
-      {/* Global Contact Modal */}
-      {showContact && (
-        <AnimatePresence>
-          <motion.div
-            key="contactModal"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowContact(false)}
-          >
-            <motion.div
-              className="bg-gray-900 rounded-2xl border border-white/10 p-8 w-full max-w-lg text-center flex flex-col items-center"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-2xl font-bold mb-4">Let’s Connect</h2>
-              <p className="text-white/80 mb-6">Have questions or want to request a live demo? We’d love to chat.</p>
-              <button
-                onClick={handleCopyEmail}
-                className="mx-auto mb-4 text-purple-400 hover:text-purple-300 underline select-all text-lg"
-              >
-                connect.kairos.ph@gmail.com
-              </button>
-              <Button className="mt-2" size="sm" onClick={() => setShowContact(false)}>Close</Button>
-            </motion.div>
-          </motion.div>
-        </AnimatePresence>
-      )}
-
+      {/* Contact Form */}
+      <AnimatePresence>
+        {showContact && <ContactForm isOpen={showContact} onClose={() => setShowContact(false)} />}
+      </AnimatePresence>
 
       {/* Mobile Navigation Tabs */}
       {isAuthenticated && (
         <div className="lg:hidden relative z-40 px-6 py-3 bg-black/10 backdrop-blur-sm border-b border-white/5">
           <div className="flex items-center space-x-1 bg-black/20 backdrop-blur-sm rounded-xl p-1">
-            <button
-              onClick={() => setActiveTab("discover")}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                activeTab === "discover"
-                  ? "bg-white/20 text-white shadow-lg"
-                  : "text-white/70 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              Discover
-            </button>
+
             <button
               onClick={() => setActiveTab("upload")}
               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center ${
@@ -261,12 +231,13 @@ function KairosLandingContent() {
                 </Badge>
 
                 <motion.h1
-                  className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 tracking-tight text-shadow-subtle"
+                  className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 tracking-tight text-shadow-subtle transition-transform duration-300 ease-in-out hover:-translate-y-1 hover:scale-[1.02] hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]"
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.4 }}
+                  whileHover={{ cursor: 'default' }}
                 >
-                  The all-in-one <span className="animate-gradient-text-subtle">startup events</span> platform for
+                  The all-in-one <span className="animate-gradient-text-subtle">professional events</span> platform for
                   founders
                 </motion.h1>
 
@@ -276,9 +247,76 @@ function KairosLandingContent() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.6 }}
                 >
-                  Connect with startup events that count. KAIROS creates the difference with smart recommendations,
+                  Connect with professional events that count. KAIROS creates the difference with smart recommendations,
                   premium networking opportunities, and curated experiences.
                 </motion.p>
+
+                {/* Enhanced Search Bar with Filters */}
+                <motion.div
+                  className="max-w-4xl mx-auto mb-8"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.7 }}
+                >
+                  <div className="rounded-xl overflow-hidden border border-white/20 shadow-lg shadow-purple-500/10 bg-black/40 backdrop-blur-content">
+                    <form onSubmit={handleSearch}>
+                      <div className="flex flex-col md:flex-row py-3 px-3 md:py-2 md:px-4">
+                        {/* Main Search Input */}
+                        <div className="relative flex-grow mb-2 md:mb-0 md:mr-3">
+                          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/60" />
+                          <input
+                            type="text"
+                            placeholder="Search events, topics, or locations..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full h-10 bg-transparent border border-white/20 rounded-md pl-12 pr-4 text-white placeholder-white/60 focus:outline-none focus:border-purple-400 transition-smooth text-sm leading-tight"
+                          />
+                        </div>
+                        
+                        {/* Filter Dropdowns */}
+                        <div className="flex flex-col md:flex-row gap-y-2 md:gap-x-3">
+                          {/* Event Type Filter */}
+                          <select
+                            value={eventType}
+                            onChange={(e) => setEventType(e.target.value)}
+                            className="h-10 bg-transparent border border-white/20 rounded-md px-3 text-white appearance-none cursor-pointer focus:outline-none focus:border-purple-400 text-sm leading-tight"
+                            style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22white%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E")', backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat', paddingRight: '28px' }}
+                          >
+                            <option value="All Types" className="bg-gray-900 text-white">All Types</option>
+                            <option value="Conference" className="bg-gray-900 text-white">Conference</option>
+                            <option value="Meetup" className="bg-gray-900 text-white">Meetup</option>
+                            <option value="Workshop" className="bg-gray-900 text-white">Workshop</option>
+                            <option value="Hackathon" className="bg-gray-900 text-white">Hackathon</option>
+                            <option value="Networking" className="bg-gray-900 text-white">Networking</option>
+                          </select>
+                          
+                          {/* Topics Filter */}
+                          <select
+                            value={eventLocation}
+                            onChange={(e) => setEventLocation(e.target.value)}
+                            className="h-10 bg-transparent border border-white/20 rounded-md px-3 text-white appearance-none cursor-pointer focus:outline-none focus:border-purple-400 text-sm leading-tight"
+                            style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22white%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E")', backgroundPosition: 'right 8px center', backgroundRepeat: 'no-repeat', paddingRight: '28px' }}
+                          >
+                            <option value="Topic" className="bg-gray-900 text-white">Topic</option>
+                            <option value="Tech" className="bg-gray-900 text-white">Tech</option>
+                            <option value="Business" className="bg-gray-900 text-white">Business</option>
+                            <option value="Design" className="bg-gray-900 text-white">Design</option>
+                            <option value="Marketing" className="bg-gray-900 text-white">Marketing</option>
+                            <option value="Finance" className="bg-gray-900 text-white">Finance</option>
+                          </select>
+                          
+                          {/* Search Button */}
+                          <Button
+                            type="submit"
+                            className="h-10 rounded-md border-0 px-4 text-white font-medium text-sm flex items-center justify-center bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 transition-all duration-200 hover:shadow-purple-500/25"
+                          >
+                            Find Events
+                          </Button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </motion.div>
 
                 <motion.div
                   className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"
@@ -286,55 +324,16 @@ function KairosLandingContent() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.8 }}
                 >
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button
-                      size="lg"
-                      className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-8 py-4 text-lg font-semibold shadow-2xl hover:shadow-purple-500/20 transition-smooth group border-0 glow-purple-subtle backdrop-blur-sm"
-                      onClick={handleQuizStart}
-                    >
-                      Get Personalized Events
-                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
-                    </Button>
+                  <motion.div className="h-[60px] w-[280px] invisible opacity-0" aria-hidden="true">
+                    {/* Invisible placeholder for "Get Personalized Events" button */}
                   </motion.div>
 
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="bg-black/25 backdrop-blur-content border-white/25 text-white hover:bg-white/15 px-8 py-4 text-lg font-semibold transition-smooth glow-blue-subtle"
-                      onClick={handleJoinCommunity}
-                    >
-                      Explore Events
-                    </Button>
+                  <motion.div className="h-[60px] w-[200px] invisible opacity-0" aria-hidden="true">
+                    {/* Invisible placeholder for "Explore Events" button */}
                   </motion.div>
                 </motion.div>
 
-                {/* Feature Pills */}
-                <motion.div
-                  className="flex flex-wrap justify-center gap-3"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 1.0 }}
-                >
-                  {[
-                    { icon: Target, label: "AI Matching" },
-                    { icon: Users, label: "Premium Network" },
-                    { icon: Calendar, label: "Smart Calendar" },
-                    { icon: TrendingUp, label: "Growth Events" },
-                  ].map((feature, index) => (
-                    <motion.div
-                      key={feature.label}
-                      className="flex items-center space-x-2 bg-black/25 backdrop-blur-content border border-white/15 rounded-full px-4 py-2 text-sm font-medium glow-purple-subtle transition-smooth"
-                      whileHover={{ scale: 1.05, backgroundColor: "rgba(0,0,0,0.35)" }}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.5, delay: 1.2 + index * 0.1 }}
-                    >
-                      <feature.icon className="h-4 w-4 text-purple-300" />
-                      <span>{feature.label}</span>
-                    </motion.div>
-                  ))}
-                </motion.div>
+                {/* Removed Feature Pills Section */}
               </motion.div>
             </div>
           </div>
@@ -353,31 +352,9 @@ function KairosLandingContent() {
             </form>
           </div>
 
-          {/* Events Section with Search Query */}
-          {!showQuiz && !showResults && <EventsSection searchQuery={searchQuery} />}
+          {/* Events Section Removed */}
         </>
       )}
-
-      {/* Promotional Button - Floating */}
-      <motion.div
-        className="fixed bottom-6 right-6 z-50"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 2 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <Button
-          className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 py-3 font-semibold shadow-2xl hover:shadow-yellow-500/20 transition-smooth group border-0 relative overflow-hidden rounded-full backdrop-blur-content"
-          onClick={() => setShowReferralProgram(true)}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/15 to-orange-400/15 animate-pulse" />
-          <span className="relative flex items-center">
-            🏆 Win Consultation
-            <span className="ml-2 text-xs bg-red-500 text-white px-2 py-0.5 rounded-full animate-bounce">NEW</span>
-          </span>
-        </Button>
-      </motion.div>
 
       {/* Modals */}
       {/* <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} /> */}
@@ -385,7 +362,7 @@ function KairosLandingContent() {
       {showResults && quizData && (
         <QuizResults quizData={quizData} onStartOver={handleStartOver} />
       )}
-      <ReferralProgram isOpen={showReferralProgram} onClose={() => setShowReferralProgram(false)} />
+      {/* Removed Referral Program modal */}
     </div>
   )
 }

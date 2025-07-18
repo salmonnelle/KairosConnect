@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "@/lib/framer-motion-wrapper"
 import { Button } from "@/components/ui/button"
 import { X, Mail, Lock, User, Eye, EyeOff } from "lucide-react"
 import { useAuth } from "./auth-context"

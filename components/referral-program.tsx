@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "@/lib/animation";
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { X, Copy, Trophy, Users, Calendar, ExternalLink, Target, Zap } from "lucide-react"

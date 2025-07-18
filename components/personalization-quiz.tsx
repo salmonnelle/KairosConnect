@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "@/lib/animation";
 import { Button } from "@/components/ui/button"
 import { ArrowRight, CheckCircle, Users, Lightbulb, TrendingUp, Building, Rocket, X, Sparkles } from "lucide-react"
 
@@ -178,7 +178,7 @@ export default function PersonalizationQuiz({ onComplete, onBack }: Personalizat
                               <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
-                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                transition={{ duration: 0.3 }}
                               >
                                 <CheckCircle className="h-6 w-6 text-purple-400 flex-shrink-0" />
                               </motion.div>
